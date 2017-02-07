@@ -214,3 +214,40 @@ inline bool getCmdLineArgumentString(const int argc, const char **argv,
 }
 
 #endif
+
+
+/* ===================== Example ==========================
+
+char* filePath = NULL;
+char* ofilePath = NULL;
+bool ccw = true;
+
+if (argc > 1) {
+    if (checkCmdLineFlag(argc, (const char**)argv, "file")) {
+        getCmdLineArgumentString(argc, (const char**)argv, "file", &filePath);
+    }
+    else {
+        throw("You must assign one file to read from!");
+    }
+    if (checkCmdLineFlag(argc, (const char**)argv, "throld")) {
+        pThrold = getCmdLineArgumentFloat(argc, (const char**)argv, "throld");
+    }
+    if (checkCmdLineFlag(argc, (const char**)argv, "ccw")) {
+        ccw = 0 != getCmdLineArgumentInt(argc, (const char**)argv, "ccw");
+    }
+    if (checkCmdLineFlag(argc, (const char**)argv, "margin")) {
+        margin = getCmdLineArgumentFloat(argc, (const char**)argv, "margin");
+    }
+    if (checkCmdLineFlag(argc, (const char**)argv, "outfile")) {
+        getCmdLineArgumentString(argc, (const char**)argv, "outfile", &ofilePath);
+        outFilePath = std::string(ofilePath);
+    }
+    else {
+        //throw("You must assign one file to write to!");
+    }
+}
+else {
+    return 1;
+}
+
+*/
