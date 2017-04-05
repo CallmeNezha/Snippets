@@ -1,0 +1,76 @@
+<html>
+    <head>
+        Javascript test ground.
+    </head>
+    <body>
+        <script>
+
+            var Y = function(F) {
+                return (function (f) {
+                    return f(f);
+                } (function (f) {
+                    return F(function (x) {
+                        return f(f)(x);
+                    });
+                }));
+            }
+            var thunk = function (fn) {
+                return function() {
+                var args = Array.prototype.slice.apply(arguments);
+                    return function() { return fn.apply(this, args); };
+                };
+            };
+
+            var FactorialGen2 = function (factorial) {
+                return function(n) {
+                    var factorial = thunk(function (x, n) {
+                        if (n == 0) {
+                            return x;
+                        }
+                        else {
+                            return factorial(n * x, n - 1);
+                        }
+                    });
+                    return trampoline(factorial(1, n));
+                }
+            };
+
+            var trampoline = function(f) {
+                while (f && f instanceof Function) {
+                    f = f.apply(f.context, f.args);
+                }
+                return f;
+            }
+
+            var factorial = function(n) {
+                if (n == 0) {
+                    return 1;
+                }
+                else {
+                    return n * factorial(n - 1);
+                }
+            }
+
+            var Factorial2 = Y(FactorialGen2)
+            console.log(Factorial2(10000000));
+            console.log(factorial(10000000));
+
+            // ``` ----- Output by chrome -------
+            // Preserve log:
+            // test.html:55 Infinity
+            // test.html:45 Uncaught RangeError: Maximum call stack size exceeded
+            //     at factorial (test.html:45)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            //     at factorial (test.html:50)
+            // ```
+
+        </script>
+    </body>
+</html>
