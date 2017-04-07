@@ -1,5 +1,12 @@
+numeric = require 'numeric'
+deepcopy = require 'deepcopy'
 jam = require './jam'
-nj = require 'numeric'
+
+
+
+#-------  System ------
+Function::property = (prop, desc) ->
+  Object.defineProperty @prototype, prop, desc
 
 #------- class Variable ------
 class Variable
@@ -8,24 +15,21 @@ class Variable
   """
   constructor: (num_row, num_col, option = {}) ->
     @_c_param =
-      num_col: 0
       num_row: 0
-      is_vector: no
+      num_col: 0
 
     @_m_state =
-      data: [[0]]
+      data: 0
 
-    if num_row instanceof Array and typeof num_row[0] is 'number'
-      column_vector = num_row
-      @_c_param.num_col = 1
-      @_c_param.num_row = column_vector.length
-      @_c_param.is_vector = yes
-      @_m_state.data = column_vector
+    if num_row instanceof Array
+      data = deepcopy num_row
+      @_c_param.num_col = if typeof data[0] is 'number' then data.length else data[0].length
+      @_c_param.num_row = if typeof data[0] is 'number' then 1 else data.length
+      @_m_state.data = data
     else
       @_c_param.num_col = num_col
       @_c_param.num_row = num_row
-      @_c_param.is_vector = no
-      { initializer } = option
+      { initializer } = deepcopy option
       throw TypeError "Error: initializer :: Void -> Double" if initializer? and isNaN initializer()
       @_m_state.data = ( initializer?() or 0 for _ in [0...num_col] for _ in [0...num_row] )
     @
@@ -35,22 +39,18 @@ class Variable
   @property 'num_row',
     get: -> @_c_param.num_row
   @property 'is_vector',
-    get: -> @_c_param.is_vector
+    get: -> @_c_param.num_row is 1
   @property 'data',
     get: -> @_m_state.data
+  
   
   
   toString: ->
     "[Variable Object] Size: #{@_c_param.num_row}x#{@_c_param.num_col}"
 
   map: (f) ->
-      throw TypeError "Error: this :: (Variable x)" if not (@ instanceof Variable)
-      throw TypeError "Error: f :: Double -> Double" if f? and isNaN f 0.0
-      if @_c_param.is_vector is yes
-        @_m_state.data = @_m_state.data.map( (x) -> f(x) )
-      else
-        @_m_state.data = @_m_state.data.map( (x) -> x.map( (x) -> f(x) ) )
-      @
+      data = f @_m_state.data
+      VariableOf data
 
 
   
@@ -79,11 +79,27 @@ class Net
 W = VariableOf(2, 3, 'initializer': () -> -0.1)
 b = VariableOf(1, 3)
 
+input = VariableOf([1,2])
 
-tanh_mapped = jam.map(ActivateFunc::tanh)
-W_tanh = tanh_mapped W
+Variable_map_binary = (f) ->
+  (a, b) ->
+    VariableOf f a.data, b.data
 
-console.log W.data, W.toString()
+
+
+result = Variable_map_binary(numeric.dot)(input, W)
+
+# foo = jam.map((x) -> x.map( (x) -> x.map( (x) -> ActivateFunc::tanh(x) ) ))
+# result = foo W
+
+# assert = require 'assert'
+# describe 'Array', ->
+#   describe '#indexOf()', ->
+#     it 'should return -1 when the value is not present', -> 
+#       assert.equal(-1, [1,2,3].indexOf(4))
+
+
+console.log result.data, result.toString()
 
 
 

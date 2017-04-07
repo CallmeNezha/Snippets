@@ -15,9 +15,7 @@ jam.compose = (fs...) ->
 jam.map = (f) ->
   (x) ->
     x.map(f)
-#-------  System ------
-Function::property = (prop, desc) ->
-  Object.defineProperty @prototype, prop, desc
+
 
 
 if module.exports? then module.exports = jam else this.jam = jam
