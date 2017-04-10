@@ -13,7 +13,7 @@ assert = (condition) ->
   throw "Assertion failed" if not condition
 # ------- Convenient methods -----
 Zero = -> 0.0
-Random = -> Math.random() - 0.5
+Random = -> Math.random()
 
 
 # ---------- Operators ----------
@@ -182,20 +182,21 @@ class Layer
     set: (x) -> @_input.data = deepcopy x
 
   calcOutputGrad: (target) ->
-    @_output.data = @output if not (@_output.data?)
-    contrib = sub target, @_output.data # 1/2(target - x)^2 |-> x - target. And we need negative derivative to gradient descent.
-    @_m_state.gradient = mul contrib, @_c_param.activate_derivative(@_output.data)
+    @_output.data = @output
+    contrib = sub @_output.data, target # 1/2(target - x)^2 |-> x - target. And we need negative derivative to gradient descent.
+    derivate = @_c_param.activate_derivative(@_output.data)
+    @_m_state.gradient = mul contrib, derivate
+    undefined
 
   calcHiddenGrad: (next) ->
     @_output.data = @output  if not (@_output.data?)
     contrib = dot next._m_state.gradient, next._m_state.W
-    @_m_state.gradient = mul contrib, @_c_param.activate_derivative(@_output.data)
+    derivate = @_c_param.activate_derivative(@_output.data)
+    @_m_state.gradient = mul contrib, derivate
+    undefined
 
   
-  updateWeights: ->
-    eta = VariableOf(0.2) # overall net learning rate
-    alpha = VariableOf(0.02) # momentum
-
+  updateWeights: (eta, alpha) ->
     """
       newDeltaWeight = 
         // Global learning rate
@@ -210,13 +211,14 @@ class Layer
     temp = mul eta, temp
     delta_weight = add temp, (mul alpha, @_m_state.W_delta)
     @_m_state.W_delta = delta_weight
-    @_m_state.W = add @_m_state.W, @_m_state.W_delta
+    @_m_state.W = sub @_m_state.W, @_m_state.W_delta
 
     # ------ Update bias -----
     temp = mul eta, @_m_state.gradient # Bias output always equal 1.0
     delta_bias = add temp, (mul alpha, @_m_state.b_delta)
     @_m_state.b_delta = delta_bias
-    @_m_state.b = add @_m_state.b, @_m_state.b_delta
+    @_m_state.b = sub @_m_state.b, @_m_state.b_delta
+    undefined
 
   
     
@@ -248,8 +250,18 @@ unit_test = () ->
   W2 = VariableOf [ [0.40, 0.45], [0.50, 0.55] ]
   bias2 = VariableOf [0.60, 0.60]
 
+  eta = VariableOf 0.5
+  alpha = VariableOf 0.0
+
   l1_test_out = VariableOf [0.5932699921071872, 0.596884378259767]
   l2_test_out = VariableOf [0.7513650695523157, 0.7729284653214625]
+
+  l2_new_weights = VariableOf [[0.35891647971788465, 0.4086661860762334]
+                            , [0.5113012702387375, 0.5613701211079891]]
+
+  l1_new_weights = VariableOf [[0.1497807161327628, 0.19956143226552567]
+                              ,[0.24975114363236958, 0.29950228726473915]]
+
   half_square_test_error = VariableOf 0.2983711087600027
   
 
@@ -260,26 +272,71 @@ unit_test = () ->
   do () ->
     l1.input = input
     l2.input = l1.output
+
+
     error = ErrorFunc.halfSquaredError l2.output, target
+    l2.calcOutputGrad target
+    l1.calcHiddenGrad l2
 
     assert _.isEqual l1.output.data, l1_test_out.data
     assert _.isEqual l2.output.data, l2_test_out.data
     assert _.isEqual (sum error), half_square_test_error
-    console.log "Message: forward feed test [PASS]."
+
+    l2.updateWeights(eta, alpha)
+    l1.updateWeights(eta, alpha)
+
+    assert _.isEqual l2._m_state.W, l2_new_weights
+    assert _.isEqual l1._m_state.W, l1_new_weights
+
+    console.log "Message: Unit test [PASS]."
 
 
 unit_test()
 
 #------ Calculate gradients and update weights -------
 
+train_2 = () ->
+  input = VariableOf [0.05, 0.1]
+  target = VariableOf [0.01, 0.99]
+  W = VariableOf 2, 2, initializer: () -> Math.random() * 0.5
+  bias = VariableOf 1, 2, initializer: () -> 0.1
+
+  W2 = VariableOf 2, 2, initializer: () -> Math.random() * 0.5
+  bias2 = VariableOf 1, 2, initializer: () -> 0.1
+
+  eta = VariableOf 0.5
+  alpha = VariableOf 0.0
+
+  l1 = LayerOf(W, bias, activate: ActivateFunc.logistic)
+  l2 = LayerOf(W2, bias2, activate: ActivateFunc.logistic) # Here layer2 is output layer
+
+  # closure for local variables.
+  do () ->
+    for i in [0..10000]
+      l1.input = input
+      l2.input = l1.output
+
+      l2.calcOutputGrad target
+      l1.calcHiddenGrad l2
+
+      l2.updateWeights(eta, alpha)
+      l1.updateWeights(eta, alpha)
+
+      if i % 100 is 0
+        console.log "Predict #{l2.output.data}, target #{target.data}"
+
+
 train = () ->
 
   train_data = [
-    {input: [0.001, 0.001], target: 1},
-    {input: [1, 0.001], target: 0.001},
-    {input: [1, 1], target: 1},
-    {input: [0.001, 1], target: 0.001}    
+    {input: [0.0001, 0.0001], target: 1.0},
+    {input: [1.0, 0.001], target: 0.0001},
+    {input: [1.0, 1.0], target: 1.0},
+    {input: [0.0001, 1.0], target: 0.0001}    
   ]
+
+  eta = VariableOf 0.2
+  alpha = VariableOf 0.1
 
   W = VariableOf 5, 2, initializer: () -> Math.random() * 0.5
   bias = VariableOf 1, 5, initializer: () -> 0.1
@@ -288,34 +345,41 @@ train = () ->
   bias2 = VariableOf 1, 1, initializer: () -> 0.1
 
   l1 = LayerOf(W, bias, activate: ActivateFunc.logistic)
-  l2 = LayerOf(W2, bias2, activate: ActivateFunc.identity) # Here layer2 is output layer
+  l2 = LayerOf(W2, bias2, activate: ActivateFunc.logistic) # Here layer2 is output layer
 
   # closure for local variables.
   do () ->
-    for i in [0..100000]
+    for i in [0..1000000]
       {input, target} = train_data[i%4]
       input = VariableOf input
       target = VariableOf target
       l1.input = input
       l2.input = l1.output
 
+      temp = l2.output
+
       l2.calcOutputGrad target
       l1.calcHiddenGrad l2
 
-      l1.updateWeights()
-      l2.updateWeights()
-
+      l2.updateWeights(eta, alpha)
+      l1.updateWeights(eta, alpha)
+      if i % 10 in [0...4]
+        console.log "Predict: #{l2.output.data}, Target: #{target.data}"
+      # console.log "L1 weights: #{l1._m_state.W.data}"
+      # console.log "L1 bias: #{l1._m_state.b.data}"
       
-      console.log "Predict: #{l2.output.data}, Target: #{target.data}"
+      # console.log "L2 weights: #{l2._m_state.W.data}"
+      # console.log "L2 bias: #{l2._m_state.b.data}"
+        
 
 
 
-train()
+# train()
 
 
 
-
-
+do main = () ->
+  train()
 
 
 # class Variable
