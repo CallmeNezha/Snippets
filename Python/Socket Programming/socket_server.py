@@ -1,4 +1,5 @@
 import socket
+import time
 
 Code = {
     b"4509": "transfer_done_continue",
@@ -35,9 +36,9 @@ class EnvServer:
             if b'1' == code:
                 break
             if b"4509" == code:
-                return data
+                return data.decode('ascii')
             if b"4510" == code:
-                return data
+                return data.decode('ascii')
 
         print("[*] Ready to close connection.")
         self.conn.close()
@@ -47,6 +48,7 @@ class EnvServer:
     def send_data(self, data_string):
         if self.state != "connected": return
         self.conn.sendall(data_string.encode('ascii'))
+        
 
     def _recv_data(self, conn):
         data = []
@@ -70,7 +72,20 @@ class EnvServer:
 
 if "__main__" == __name__:
     with EnvServer() as env_server:
-        data = env_server.recv_data()
-        if data is not None:
-            print(data.decode('ascii'))
+        while True:
+            # data = env_server.recv_data()
+            # if data is not None:
+            #     print(data.decode('ascii'))
+            env_server.send_data("COMMAND=RESET")
+            print("[*] Send msg:", "COMMAND=RESET")
+            time.sleep(2)
+            data = env_server.recv_data()
+            print("[*] Recv msg:", data)
+            time.sleep(2)
+            env_server.send_data("COMMAND=STEP ACTION=[1.0,23.0,2.0]")
+            print("[*] Send msg:", "COMMAND=STEP ACTION=[1.0,23.0,2.0]")
+            time.sleep(2)
+            print("[*] Recv msg:", data)
+            time.sleep(2)
+            
     print("[*] Program done.")
